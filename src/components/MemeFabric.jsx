@@ -731,7 +731,7 @@ export default function MemeFabric() {
             />
           </div>
           {/* Chepe Body vertical carousel */}
-          <div className="text-xs bg-[#212A50] rounded-[20px] font-semibold tracking-wide py-[12px] text-center flex flex-col items-center">
+          <div className="text-xs bg-[#212A50] rounded-[20px] font-semibold tracking-wide py-[12px] text-center flex flex-col items-center mt-[18px]">
             <ChepeCarousel
               images={CHEPE_BODIES}
               onPick={setChepeBodyFromURL}
@@ -768,32 +768,79 @@ function ChepeCarousel({ images, onPick, alt }) {
   const [index, setIndex] = useState(0);
   const max = images.length - 1;
   return (
-    <div style={{ width: 96, margin: "0 auto" }} className="flex flex-col items-center mt-2">
-      <button
-        aria-label="Previous"
-        className="mb-2 text-lg px-2 py-1 rounded bg-[#1e293b] hover:bg-[#334155] text-white"
-        onClick={() => setIndex(i => (i === 0 ? max : i - 1))}
-        style={{ width: 32 }}
-      >▲</button>
-      <button
-        className="group relative w-full aspect-square rounded-md focus:outline-none"
-        style={{ maxWidth: 96 }}
-        onClick={() => onPick(images[index])}
+
+    <div className="flex flex-col gap-[8px]">
+      <div
+        style={{ width: 96, margin: "0 auto" }}
+        className="flex flex-row items-center justify-center "
       >
-        <img
-          src={images[index]}
-          alt={alt}
-          className="w-full h-full object-contain"
-          draggable={false}
-        />
-      </button>
-      <button
-        aria-label="Next"
-        className="mt-2 text-lg px-2 py-1 rounded bg-[#1e293b] hover:bg-[#334155] text-white"
-        onClick={() => setIndex(i => (i === max ? 0 : i + 1))}
-        style={{ width: 32 }}
-      >▼</button>
-      <div className="text-[11px] mt-1 opacity-60">{index + 1} / {images.length}</div>
+        <button
+          aria-label="Previous"
+          className="text-lg px-2 py-1 rounded cursor-pointer"
+          style={{
+            width: 32,
+            background: "transparent",
+            color: "#fff",
+            boxShadow: "none",
+            border: "none",
+            transition: "background 0.15s",
+          }}
+          onClick={() => setIndex(i => (i === 0 ? max : i - 1))}
+          onMouseOver={e => e.currentTarget.style.background = "rgba(255,255,255,0.8)"}
+          onMouseOut={e => e.currentTarget.style.background = "transparent"}
+        >◀</button>
+        <button
+          className="group relative aspect-square rounded-md focus:outline-none"
+          style={{
+            maxWidth: 64,
+            width: 64,
+            height: 64,
+            background: "transparent",
+            cursor: "pointer",
+            border: "none",
+            boxShadow: "none",
+            outline: "none",
+            margin: "0 8px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          onClick={() => onPick(images[index])}
+        >
+          <img
+            src={images[index]}
+            alt={alt}
+            className="w-full h-full object-contain"
+            draggable={false}
+            style={{
+              background: "transparent",
+              border: "none",
+              boxShadow: "none",
+              outline: "none",
+            }}
+          />
+        </button>
+        <button
+          aria-label="Next"
+          className="text-lg px-2 py-1 rounded cursor-pointer"
+          style={{
+            width: 32,
+            background: "transparent",
+            color: "#fff",
+            boxShadow: "none",
+            border: "none",
+            transition: "background 0.15s",
+          }}
+          onClick={() => setIndex(i => (i === max ? 0 : i + 1))}
+          onMouseOver={e => e.currentTarget.style.background = "rgba(255,255,255,0.8)"}
+          onMouseOut={e => e.currentTarget.style.background = "transparent"}
+        >▶</button>
+
+      </div>
+      <div className="text-[11px] opacity-60 ml-2" style={{ minWidth: 40, textAlign: "center" }}>
+        {index + 1} / {images.length}
+      </div>
     </div>
+
   );
 }

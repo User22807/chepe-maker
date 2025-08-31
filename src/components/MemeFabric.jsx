@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Canvas, Image as FabricImage, FabricObject } from "fabric";
-
+import ReactH5AudioPlayer, { RHAP_UI } from "react-h5-audio-player";
+import "react-h5-audio-player/lib/styles.css";
 const CANVAS_SIZE = 500;
 
 // Local background assets
@@ -20,6 +21,16 @@ const CHEPE_IMAGES = [
   "/chepe/chepe-3.png",
   "/chepe/chepe-4.png",
 ];
+const CHEPE_BODIES = [
+  "/chepe/bodies/body-1.png",
+  "/chepe/bodies/body-2.png",
+  "/chepe/bodies/body-3.png",
+];
+const CHEPE_HEADS = [
+  "/chepe/heads/head-1.png",
+  "/chepe/heads/head-2.png",
+  "/chepe/heads/head-3.png",
+];
 
 // 🔹 Set this to your actual default character image path
 const DEFAULT_USER_IMAGE = "/assets/guest-default.png";
@@ -29,11 +40,14 @@ export default function MemeFabric() {
   const canvasRef = useRef(null);
   const bgObjRef = useRef(null);
   const userFileInputRef = useRef(null);
+  const chepeBodyRef = useRef(null);
+  const chepeHeadRef = useRef(null);
 
   const [userObj, setUserObj] = useState(null);
   const [chepeObj, setChepeObj] = useState(null);
   const [userThumbSrc, setUserThumbSrc] = useState(null);
   const [activeId, setActiveId] = useState(null);
+  const [isMusicPlaying, setIsMusicPlaying] = useState(false);
 
   // for "Upload background" button
   const bgFileInputRef = useRef(null);
@@ -52,6 +66,8 @@ export default function MemeFabric() {
   function prettyName(o) {
     if (o._type === "background") return "Background";
     if (o._type === "user") return "Your character";
+    if (o._type === "chepe-body") return "Chepe Body";
+    if (o._type === "chepe-head") return "Chepe Head";
     if (o._type === "chepe") return "Chepe";
     return "Layer";
   }
@@ -176,9 +192,12 @@ export default function MemeFabric() {
           if (sceneVersionRef.current !== myVersion) return;
         }
 
-        // 3) random Chepe
-        const chepePick = CHEPE_IMAGES[Math.floor(Math.random() * CHEPE_IMAGES.length)];
-        await addChepeFromURL(chepePick);
+        // 3) Add one random Chepe Body and one random Chepe Head (head above body)
+        const bodyPick = CHEPE_BODIES[Math.floor(Math.random() * CHEPE_BODIES.length)];
+        const headPick = CHEPE_HEADS[Math.floor(Math.random() * CHEPE_HEADS.length)];
+        await setChepeBodyFromURL(bodyPick);
+        if (sceneVersionRef.current !== myVersion) return;
+        await setChepeHeadFromURL(headPick);
         if (sceneVersionRef.current !== myVersion) return;
       } finally {
         refreshLayersUI();
@@ -348,10 +367,98 @@ export default function MemeFabric() {
     await addUserFromURL(url);
   }
 
+  // NEW: helpers to set/replace body/head
+  async function setChepeBodyFromURL(url, opts = {}) {
+    const canvas = canvasRef.current; if (!canvas) return;
+    if (chepeBodyRef.current) canvas.remove(chepeBodyRef.current);
+    const body = await addImageLayer(url, {
+      centerX: opts.centerX ?? 0.62,
+      centerY: opts.centerY ?? 0.58,
+      type: "chepe-body",
+    });
+    chepeBodyRef.current = body;
+    // Make sure body is below head if head exists
+    if (chepeHeadRef.current) {
+      const objs = canvas.getObjects();
+      const bodyIndex = objs.indexOf(body);
+      const headIndex = objs.indexOf(chepeHeadRef.current);
+      if (headIndex <= bodyIndex) {
+        moveObjectToIndex(canvas, chepeHeadRef.current, bodyIndex + 1);
+      }
+    }
+    canvas.requestRenderAll();
+    refreshLayersUI();
+
+    // Always ensure body is below head
+    if (chepeBodyRef.current && chepeHeadRef.current) {
+      const objs = canvas.getObjects();
+      const bodyIndex = objs.indexOf(chepeBodyRef.current);
+      const headIndex = objs.indexOf(chepeHeadRef.current);
+
+      // Move body below head
+      if (bodyIndex > -1 && headIndex > -1 && bodyIndex > headIndex) {
+        moveObjectToIndex(canvas, chepeBodyRef.current, headIndex);
+        moveObjectToIndex(canvas, chepeHeadRef.current, headIndex + 1);
+        canvas.requestRenderAll();
+      }
+    }
+  }
+
+  async function setChepeHeadFromURL(url, opts = {}) {
+    const canvas = canvasRef.current; if (!canvas) return;
+    if (chepeHeadRef.current) canvas.remove(chepeHeadRef.current);
+
+    // Default placement: over body if exists
+    let cx = 0.62, cy = 0.45;
+    if (chepeBodyRef.current) {
+      cx = chepeBodyRef.current.left / CANVAS_SIZE;
+      cy = chepeBodyRef.current.top / CANVAS_SIZE - 0.28;
+    }
+    const head = await addImageLayer(url, {
+      centerX: opts.centerX ?? cx,
+      centerY: opts.centerY ?? cy,
+      type: "chepe-head",
+    });
+
+    // Scale head to 1/3 of its current size
+    head.scale(head.scaleX * (1 / 2));
+
+    chepeHeadRef.current = head;
+    // Ensure head sits above body
+    if (chepeBodyRef.current) {
+      if (typeof canvas.bringToFront === "function") {
+        canvas.bringToFront(head);
+      }
+    }
+    canvas.requestRenderAll();
+    refreshLayersUI();
+  }
+
+  // Add this helper:
+  function groupChepeParts() {
+    const canvas = canvasRef.current;
+    if (!canvas || !chepeBodyRef.current || !chepeHeadRef.current) return;
+    // Remove individual objects from canvas
+    canvas.remove(chepeBodyRef.current);
+    canvas.remove(chepeHeadRef.current);
+    // Create group: body first, then head (so head is above)
+    const group = new fabric.Group([chepeBodyRef.current, chepeHeadRef.current], {
+      left: CANVAS_SIZE * 0.62,
+      top: CANVAS_SIZE * 0.58,
+      originX: "center",
+      originY: "center",
+    });
+    assignIdAndMeta(group, "chepe-group");
+    canvas.add(group);
+    canvas.setActiveObject(group);
+    canvas.requestRenderAll();
+    // Optionally: store group ref if you want to manipulate later
+  }
+
+  // Update removeLayer to clear refs
   function removeLayer(id) {
     const c = canvasRef.current;
     if (!c) return;
-
     const obj = getObjectById(id);
     if (!obj) return;
 
@@ -360,7 +467,10 @@ export default function MemeFabric() {
       setUserObj(null);
       setUserThumbSrc(null);
     }
-    if (obj === chepeObj) setChepeObj(null);
+if (obj === chepeObj) setChepeObj(null);
+    // NEW: clear chepe body/head refs when those are removed
+    if (obj === chepeBodyRef.current || obj._type === "chepe-body") chepeBodyRef.current = null;
+    if (obj === chepeHeadRef.current  || obj._type === "chepe-head")  chepeHeadRef.current  = null;
 
     c.remove(obj);
     c.discardActiveObject();
@@ -438,7 +548,9 @@ export default function MemeFabric() {
                   <span className="text-[11px] uppercase tracking-wide opacity-70 select-none">
                     Upload
                   </span>
+
                 )}
+
               </div>
               <div className="text-xs font-medium opacity-80">Your character</div>
 
@@ -451,7 +563,7 @@ export default function MemeFabric() {
                 onChange={(e) => e.target.files?.[0] && addUserFromFile(e.target.files[0])}
               />
             </div>
-
+            
             {/* Layers at the bottom */}
             <div className="mt-auto rounded-xl bg-[#212A50] rounded-[20px] p-[10px] space-y-1">
               <div className="text-[12px] text-[#ccc] mb-[14px] font-medium opacity-80">Layers</div>
@@ -496,6 +608,52 @@ export default function MemeFabric() {
                 );
               })}
             </div>
+            {/* --- Use react-h5-audio-player for streaming/buffering --- */}
+            <div style={{ zIndex: 10, width: 170 }}>
+              <ReactH5AudioPlayer
+                src="/music/background.mp3"
+                showJumpControls={false}
+                customAdditionalControls={[]} // No extra controls
+                customVolumeControls={[]} // Hide volume controls
+                showFilledProgress={true}
+                showDownloadProgress={false}
+                layout="horizontal-reverse"
+                onPlay={() => setIsMusicPlaying(true)}
+                onPause={() => setIsMusicPlaying(false)}
+                customProgressBarSection={[
+                  RHAP_UI.MAIN_CONTROLS,
+                  RHAP_UI.PROGRESS_BAR,
+                ]}
+                customControlsSection={[]}
+                style={{
+                  background: "transparent",
+                  boxShadow: "none",
+                  paddingLeft: 0,
+                  paddingRight: 0,
+                }}
+                className="!bg-transparent !shadow-none !pl-0 !pr-0 custom-audio-player"
+              />
+              <style>
+                {`
+                  .custom-audio-player .rhap_container {
+                    background: transparent !important;
+                    box-shadow: none !important;
+                    padding-left: 0 !important;
+                    padding-right: 0 !important;
+                  }
+                  .custom-audio-player .rhap_main-controls {
+                    margin-left: 0 !important;
+                  }
+                  .custom-audio-player .rhap_controls-section {
+                    margin-left: 0 !important;
+                  }
+                  .custom-audio-player .rhap_play-pause-button {
+                    margin-left: 0 !important;
+                  }
+                `}
+              </style>
+            </div>
+            {/* --- End music player --- */}
           </div>
 
         </div>
@@ -564,33 +722,25 @@ export default function MemeFabric() {
 
         {/* Right: Vertical Chepe picker*/}
         <div className="flex flex-col h-full">
-          {/* Chepe Poses on top */}
-          <div>
-            <div className="text-xs bg-[#212A50] rounded-[20px] font-semibold tracking-wide py-[20px] text-center">
-              Chepe Poses
-              <div className="grid grid-cols-1 gap-2 ">
-                {CHEPE_IMAGES.map((src) => (
-                  <button
-                    key={src}
-                    title={src}
-                    onClick={() => addChepeFromURL(src)}
-                    className="group relative w-full cursor-pointer aspect-square rounded-md border border-transparent focus:outline-none bg-transparent shadow-none"
-                    style={{ maxWidth: 96, marginInline: "auto" }}
-                  >
-                    <img
-                      src={src}
-                      alt="chepe"
-                      className="w-full h-full object-contain group-hover:scale-[1.03] transition-transform"
-                      draggable={false}
-                      style={{ background: "transparent" }}
-                    />
-                  </button>
-                ))}
-              </div>
-            </div>
-
+          {/* Chepe Body vertical carousel */}
+          <div className="text-xs bg-[#212A50] rounded-[20px] font-semibold tracking-wide py-[12px] text-center flex flex-col items-center">
+            Chepe Body
+            <ChepeCarousel
+              images={CHEPE_BODIES}
+              onPick={setChepeBodyFromURL}
+              alt="body"
+            />
           </div>
 
+          {/* Chepe Head vertical carousel */}
+          <div className="text-xs bg-[#212A50] rounded-[20px] font-semibold tracking-wide py-[12px] text-center mt-4 flex flex-col items-center">
+            Chepe Head
+            <ChepeCarousel
+              images={CHEPE_HEADS}
+              onPick={setChepeHeadFromURL}
+              alt="head"
+            />
+          </div>
           {/* Export at the bottom */}
           <div className="mt-auto items-center rounded-xl bg-[#212A50] p-[12px] rounded-[20px] gap-[20px]">
             <div className="text-xs font-medium opacity-80">Export</div>
@@ -610,8 +760,41 @@ export default function MemeFabric() {
             </div>
           </div>
         </div>
-
       </div>
+    </div>
+  );
+}
+
+function ChepeCarousel({ images, onPick, alt }) {
+  const [index, setIndex] = useState(0);
+  const max = images.length - 1;
+  return (
+    <div style={{ width: 96, margin: "0 auto" }} className="flex flex-col items-center mt-2">
+      <button
+        aria-label="Previous"
+        className="mb-2 text-lg px-2 py-1 rounded bg-[#1e293b] hover:bg-[#334155] text-white"
+        onClick={() => setIndex(i => (i === 0 ? max : i - 1))}
+        style={{ width: 32 }}
+      >▲</button>
+      <button
+        className="group relative w-full aspect-square rounded-md focus:outline-none"
+        style={{ maxWidth: 96 }}
+        onClick={() => onPick(images[index])}
+      >
+        <img
+          src={images[index]}
+          alt={alt}
+          className="w-full h-full object-contain"
+          draggable={false}
+        />
+      </button>
+      <button
+        aria-label="Next"
+        className="mt-2 text-lg px-2 py-1 rounded bg-[#1e293b] hover:bg-[#334155] text-white"
+        onClick={() => setIndex(i => (i === max ? 0 : i + 1))}
+        style={{ width: 32 }}
+      >▼</button>
+      <div className="text-[11px] mt-1 opacity-60">{index + 1} / {images.length}</div>
     </div>
   );
 }

@@ -14,3 +14,7 @@ body {
   min-width: 100vw;
   box-sizing: border-box;
 }
+
+.rhap_controls-section {
+  display: none !important;
+}

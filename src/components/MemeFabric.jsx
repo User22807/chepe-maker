@@ -467,10 +467,10 @@ export default function MemeFabric() {
       setUserObj(null);
       setUserThumbSrc(null);
     }
-if (obj === chepeObj) setChepeObj(null);
+    if (obj === chepeObj) setChepeObj(null);
     // NEW: clear chepe body/head refs when those are removed
     if (obj === chepeBodyRef.current || obj._type === "chepe-body") chepeBodyRef.current = null;
-    if (obj === chepeHeadRef.current  || obj._type === "chepe-head")  chepeHeadRef.current  = null;
+    if (obj === chepeHeadRef.current || obj._type === "chepe-head") chepeHeadRef.current = null;
 
     c.remove(obj);
     c.discardActiveObject();
@@ -563,7 +563,7 @@ if (obj === chepeObj) setChepeObj(null);
                 onChange={(e) => e.target.files?.[0] && addUserFromFile(e.target.files[0])}
               />
             </div>
-            
+
             {/* Layers at the bottom */}
             <div className="mt-auto rounded-xl bg-[#212A50] rounded-[20px] p-[10px] space-y-1">
               <div className="text-[12px] text-[#ccc] mb-[14px] font-medium opacity-80">Layers</div>
@@ -722,9 +722,16 @@ if (obj === chepeObj) setChepeObj(null);
 
         {/* Right: Vertical Chepe picker*/}
         <div className="flex flex-col h-full">
+          {/* Chepe Head vertical carousel */}
+          <div className="text-xs bg-[#212A50] rounded-[20px] font-semibold tracking-wide py-[12px] text-center mt-4 flex flex-col items-center">
+            <ChepeCarousel
+              images={CHEPE_HEADS}
+              onPick={setChepeHeadFromURL}
+              alt="head"
+            />
+          </div>
           {/* Chepe Body vertical carousel */}
           <div className="text-xs bg-[#212A50] rounded-[20px] font-semibold tracking-wide py-[12px] text-center flex flex-col items-center">
-            Chepe Body
             <ChepeCarousel
               images={CHEPE_BODIES}
               onPick={setChepeBodyFromURL}
@@ -732,15 +739,7 @@ if (obj === chepeObj) setChepeObj(null);
             />
           </div>
 
-          {/* Chepe Head vertical carousel */}
-          <div className="text-xs bg-[#212A50] rounded-[20px] font-semibold tracking-wide py-[12px] text-center mt-4 flex flex-col items-center">
-            Chepe Head
-            <ChepeCarousel
-              images={CHEPE_HEADS}
-              onPick={setChepeHeadFromURL}
-              alt="head"
-            />
-          </div>
+
           {/* Export at the bottom */}
           <div className="mt-auto items-center rounded-xl bg-[#212A50] p-[12px] rounded-[20px] gap-[20px]">
             <div className="text-xs font-medium opacity-80">Export</div>
